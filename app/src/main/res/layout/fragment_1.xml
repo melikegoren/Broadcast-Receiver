@@ -80,7 +80,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Sim Card"
+                    android:text="Sim Kart"
                     android:textSize="20sp"
                     android:background="@color/white"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -96,8 +96,7 @@
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/tv_sim"
-                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+                    app:layout_constraintTop_toBottomOf="@+id/tv_sim"/>
 
 
             </androidx.constraintlayout.widget.ConstraintLayout>
@@ -124,9 +123,9 @@
                     android:id="@+id/tv_chargingSocket"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="16dp"
                     android:gravity="center"
-                    android:text="Chargin Socket"
+                    android:text="Şarj Soketi"
                     android:textSize="20sp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -177,7 +176,7 @@
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <CheckBox
-                    android:id="@+id/switchWifi"
+                    android:id="@+id/checkboxWifi"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
@@ -185,9 +184,10 @@
                     android:minHeight="0dp"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.489"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@+id/textView"
-                    tools:ignore="UseSwitchCompatOrMaterialXml" />
+                    app:layout_constraintVertical_bias="0.333"/>                    tools:ignore="UseSwitchCompatOrMaterialXml" />
 
 
             </androidx.constraintlayout.widget.ConstraintLayout>
@@ -352,7 +352,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:gravity="center"
-                    android:text="Titeşim"
+                    android:text="Titreşim"
                     android:textSize="20sp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -455,6 +455,50 @@
 
 
         </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cv_proximity"
+            android:layout_width="130dp"
+            android:layout_height="120dp"
+            android:layout_margin="15dp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/cv_flash">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <TextView
+                    android:id="@+id/tv_proxy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center"
+                    android:text="Proximity"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <CheckBox
+                    android:id="@+id/checkbox_proxy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tv_proxy" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+        </androidx.cardview.widget.CardView>
+
+
 
 
     </androidx.constraintlayout.widget.ConstraintLayout>

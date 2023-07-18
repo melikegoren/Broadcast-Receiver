@@ -40,8 +40,8 @@ class ViewModel1 : ViewModel() {
     }
 
     fun toggleWifi(context: Context) {
-        wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        wifiManager.isWifiEnabled = !wifiManager.isWifiEnabled
+        val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        wifiManager.isWifiEnabled = wifiManager.isWifiEnabled
 
     }
 

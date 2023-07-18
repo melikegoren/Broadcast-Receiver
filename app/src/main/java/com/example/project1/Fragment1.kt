@@ -1,54 +1,74 @@
 package com.example.project1
 
+import CameraObservable
+import NetworkStateObserver
+import NfcEnabledObservable
+import ProximityControl
+import VibrationModeObservable
+import WifiConnectionObservable
 import android.bluetooth.BluetoothAdapter
 import android.Manifest
 import android.content.BroadcastReceiver
-import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Camera
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraManager
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.net.NetworkInfo
+import android.media.AudioManager
 import android.net.wifi.WifiManager
-import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.Vibrator
+import android.provider.MediaStore
 import android.provider.Settings
-import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
+import android.view.SurfaceHolder
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat.getSystemService
+import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
 import com.example.project1.databinding.Fragment1Binding
+import com.example.project1import.WifiConnectionStatusListener
+import java.lang.reflect.Method
 import kotlin.properties.Delegates
 
 
+
+
 @Suppress("DEPRECATION")
-class Fragment1 : Fragment() {
+class Fragment1 : Fragment(), ProximityControl.ProximityListener,  WifiObservable.WifiStateListener {
     var PERMISSION_REQUEST_CODE by Delegates.notNull<Int>()
 
-    //lateinit var wifiManager: WifiManager
+    lateinit var wifiManager: WifiManager
 
     private lateinit var cameraManager: CameraManager
+    private lateinit var nfc: NfcEnabledObservable
+    private lateinit var networkStateObserver: NetworkStateObserver
+    private lateinit var audioManager: AudioManager
+    private lateinit var vibrationModeObservable: VibrationModeObservable
+    private lateinit var proximityControl: ProximityControl
+    private lateinit var wifiObservable: WifiObservable
+
+
+    private var camera: android.hardware.Camera? = null
+    private var surfaceHolder: SurfaceHolder? = null
+    private var cameraId = -1
+
+
 
     private val bluetoothLiveData = MutableLiveData<Boolean>()
     private val wifiLiveData = MutableLiveData<Boolean>()
     private val networkStatus = MutableLiveData<Boolean>()
-    private lateinit var networkLiveData: NetworkLiveData
-
 
 
 
@@ -84,33 +104,6 @@ class Fragment1 : Fragment() {
         }
     }
 
-    private val wifiReceiver = object : BroadcastReceiver(){
-        override fun onReceive(context: Context, intent: Intent) {
-            val action = intent.action
-
-            if(action != null){
-                if (WifiManager.WIFI_STATE_CHANGED_ACTION == action) {
-                    val wifiState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_DISABLED)
-
-                    when (wifiState) {
-                        WifiManager.WIFI_STATE_ENABLED -> {
-                            wifiLiveData.value = true
-                        }
-                        WifiManager.WIFI_STATE_DISABLED -> {
-                            wifiLiveData.value = false
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-
-
-
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -124,39 +117,84 @@ class Fragment1 : Fragment() {
     ): View? {
         // Inflate the layout for this fragment
         viewModel = ViewModelProvider(this)[ViewModel1::class.java]
+        wifiManager = requireContext().getSystemService(Context.WIFI_SERVICE) as WifiManager
         cameraManager = context?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        networkStateObserver = NetworkStateObserver(requireContext())
+        nfc = NfcEnabledObservable(requireContext())
+        vibrationModeObservable = VibrationModeObservable(requireContext())
+
+
+
+
 
 
         _binding = Fragment1Binding.inflate(layoutInflater)
         return binding.root
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+
 
         observeData()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             bluetooth()
-            wifi()
-            //nfc()
-            vibrate()
-
+            //wifi()
+            flash()
         }
-        //nfc()
-
         viewModel.simCardStatus(requireContext())
 
-        val flashlightMonitor = FlashlightStateMonitor(requireContext(), binding.checkBoxFlash)
 
-        flashlightMonitor.startMonitoringFlashlightState()
+        nfc()
+        vibrate()
+        setFlash()
 
-        flash()
+        proximity()
+
+        wifiObservable = WifiObservable(requireContext())
+
+
+
+
+        binding.checkboxWifi.setOnCheckedChangeListener { _ , isChecked ->
+            if(isChecked){
+                enableWifi()
+            }
+
+            else {
+                disableWifi()
+            }
+        }
+
+
+
+
+
+
+
 
 
 
 
     }
+
+    private fun enableWifi() {
+        if (!wifiManager.isWifiEnabled) {
+            wifiManager.isWifiEnabled = true
+            wifiLiveData.value = true
+        }
+    }
+
+    private fun disableWifi() {
+        if (wifiManager.isWifiEnabled) {
+            wifiManager.isWifiEnabled = false
+            wifiLiveData.value = false
+        }
+    }
+
 
     fun observeData(){
         bluetoothLiveData.observe(viewLifecycleOwner){
@@ -170,61 +208,54 @@ class Fragment1 : Fragment() {
         ViewModel1.chargingSocket.observe(viewLifecycleOwner){
             binding.checkBoxCharging.isChecked = it
         }
-        wifiLiveData.observe(viewLifecycleOwner){
-            binding.switchWifi.isChecked = it
-        }
 
         networkStatus.observe(viewLifecycleOwner){
             binding.checkbox3G.isChecked = it
         }
 
-        ViewModel1.nfc.observe(viewLifecycleOwner){
+        nfc.liveData().observe(viewLifecycleOwner){
             binding.checkBoxNfc.isChecked = it
+
         }
 
-        ViewModel1.vibration.observe(viewLifecycleOwner){
-            binding.checkBoxTitresim.isChecked = it
+        val vibrationModeChangeListener: (Boolean) -> Unit = { isInVibrationMode ->
+            binding.checkBoxTitresim.isChecked = isInVibrationMode
         }
 
+        vibrationModeObservable.setOnVibrationModeChangeListener(vibrationModeChangeListener)
 
 
     }
-    private fun enableWifi() {
-       val wifiManager = requireContext().getSystemService(Context.WIFI_SERVICE) as WifiManager
-        if (!wifiManager.isWifiEnabled) {
-            wifiManager.isWifiEnabled = true
-        }
-    }
-
-    private fun disableWifi() {
-       val  wifiManager = requireContext().getSystemService(Context.WIFI_SERVICE) as WifiManager
-
-        if (wifiManager.isWifiEnabled) {
-            wifiManager.isWifiEnabled = false
-        }
-    }
 
 
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onResume() {
         super.onResume()
         registerBatteryStatusReceiver()
         registerBluetoothStatusReceiver()
-        registerWifiStatusReceiver()
-        //registerNetworkStatusReceiver()
+        //registerWifiStatusReceiver()
         registerHeadphoneStatusReceiver()
-        registerNfcStatusReceiver()
-        registerVibrationStatusReceiver()
+        nfc.startObserving()
+        vibrationModeObservable.startObserving()
+        proximityControl.start()
+        wifiObservable.startMonitoring(this)
     }
+
+
+
+
+
 
     override fun onPause() {
         super.onPause()
         unregisterBatteryStatusReceiver()
         unregisterBluetoothStatusReceiver()
-        unregisterWifiStatusReceiver()
-        //unregisterNetworkStatusReceiver()
+     //   unregisterWifiStatusReceiver()
         unregisterHeadphoneStatusRegister()
-        unregisterNfcStatusReceiver()
-        unregisterVibrationStatusReceiver()
+        nfc.stopObserving()
+        proximityControl.stop()
+        wifiObservable.stopMonitoring()
+
     }
     private fun registerBluetoothStatusReceiver(){
         val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
@@ -238,7 +269,7 @@ class Fragment1 : Fragment() {
 
     private fun registerWifiStatusReceiver(){
         val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
-        requireActivity().registerReceiver(wifiReceiver, filter)
+        //requireActivity().registerReceiver(wifiReceiver, filter)
     }
 
 
@@ -252,21 +283,6 @@ class Fragment1 : Fragment() {
         requireActivity().registerReceiver(ViewModel1.headphoneReceiver, filter)
     }
 
-    private fun registerNfcStatusReceiver(){
-        val filter = IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED)
-        requireActivity().registerReceiver(ViewModel1.nfcReceiver, filter)
-    }
-
-    private fun registerVibrationStatusReceiver(){
-        val filter = IntentFilter(Context.VIBRATOR_MANAGER_SERVICE)
-        requireActivity().registerReceiver(ViewModel1.vibrationReceiver, filter)
-    }
-
-    /*private fun registerSimCardStatusReceiver(){
-        val intentFilter = IntentFilter(TelephonyManager.EXTRA_STATE)
-        requireActivity().registerReceiver(ViewModel1.simCardReceiver, intentFilter)
-    }*/
-
     private fun unregisterBluetoothStatusReceiver(){
         requireActivity().unregisterReceiver(bluetoothReceiver)
     }
@@ -274,7 +290,7 @@ class Fragment1 : Fragment() {
         requireActivity().unregisterReceiver(ViewModel1.chargingSocketReceiver)
     }
     private fun unregisterWifiStatusReceiver(){
-        requireActivity().unregisterReceiver(wifiReceiver)
+        //requireActivity().unregisterReceiver(wifiReceiver)
     }
     /*private fun unregisterNetworkStatusReceiver(){
         requireActivity().unregisterReceiver(networkReceiver)
@@ -282,18 +298,10 @@ class Fragment1 : Fragment() {
     private fun unregisterHeadphoneStatusRegister(){
         requireActivity().unregisterReceiver(ViewModel1.headphoneReceiver)
     }
-    /*private fun unregisterSimCardStatusRegister(){
-        requireActivity().unregisterReceiver(ViewModel1.simCardReceiver)
-    }*/
 
-    private fun unregisterNfcStatusReceiver(){
-        requireContext().unregisterReceiver(ViewModel1.nfcReceiver)
-        ViewModel1.nfc.removeObservers(viewLifecycleOwner)
-    }
 
-    private fun unregisterVibrationStatusReceiver(){
-        requireActivity().unregisterReceiver(ViewModel1.nfcReceiver)
-    }
+
+
     @RequiresApi(Build.VERSION_CODES.S)
     private fun bluetooth(){
         binding.switchBluetooth.setOnCheckedChangeListener { _ , isChecked ->
@@ -316,63 +324,65 @@ class Fragment1 : Fragment() {
 
     @RequiresApi(Build.VERSION_CODES.S)
     private fun wifi(){
-        binding.switchWifi.setOnCheckedChangeListener{ b , isChecked ->
-            if(isChecked){
-                enableWifi()
-            }
-            else{
-                disableWifi()
-            }
 
-        }
+
+
 
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     private fun flash(){
 
         binding.checkBoxFlash.setOnCheckedChangeListener { buttonView, isChecked ->
-
             if(isChecked){
                 turnOnFlash()
             }
             else turnOffFlash()
         }
 
-
     }
 
+    private fun setFlash(){
+        val flashlightMonitor = FlashlightStateMonitor(requireContext(), binding.checkBoxFlash)
+        flashlightMonitor.startMonitoringFlashlightState()
+    }
+
+
     private fun nfc(){
-        var adapter = NfcAdapter.getDefaultAdapter(this.context)
-        /*binding.checkBoxNfc.setOnCheckedChangeListener { buttonView, isChecked ->
-            if(isChecked){
-
-                Toast.makeText(context, "NFC is available.",Toast.LENGTH_SHORT).show()
-            }
-            else{
-                //val intent = Intent(Settings.ACTION_NFC_SETTINGS)
-                //startActivity(intent)
-                !adapter.isEnabled
-
-                Toast.makeText(context, "NFC is unavailable.",Toast.LENGTH_SHORT).show()
-
-            }
-        }*/
-
-        if(adapter !=null){
-            if(adapter.isEnabled) binding.checkBoxNfc.isChecked = true
+        binding.checkBoxNfc.setOnCheckedChangeListener { buttonView, isChecked ->
+            goToNfcSettings()
         }
-            else binding.checkBoxNfc.isChecked = true
     }
 
     private fun vibrate(){
-        val vibrator = context?.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        binding.checkBoxTitresim.setOnCheckedChangeListener { buttonView, isChecked ->
-            if(isChecked){
-                vibrator.vibrate(1000)
-            }
+        audioManager = requireContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
+        binding.checkBoxTitresim.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                // Change device mode to vibration
+                audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+            } else {
+                // Change device mode to normal
+                audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
+            }
         }
     }
+    private fun proximity(){
+        proximityControl = ProximityControl(requireContext())
+        proximityControl.setProximityListener(this)
+    }
+
+    /*private fun proximity(){
+        val proximityObserver = object : ProximitySensorObservable.Observer {
+            override fun onProximityStateChanged(proximityEnabled: Boolean) {
+                // Handle proximity state change here
+                binding.checkboxProxy.isChecked = proximityEnabled
+            }
+        }
+
+        proximitySensorObservable.addObserver(proximityObserver)
+        proximitySensorObservable.startListening()
+    }*/
 
 
 
@@ -384,17 +394,9 @@ class Fragment1 : Fragment() {
         ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.BLUETOOTH_CONNECT) ==
                 PackageManager.PERMISSION_GRANTED
 
-    private fun hasWifiPermission(): Boolean{
-        val permissions = arrayOf(Manifest.permission.ACCESS_WIFI_STATE, Manifest.permission.CHANGE_WIFI_STATE)
-        var i = 0
-        for(permission in permissions){
-            if(ActivityCompat.checkSelfPermission(requireContext(), permission) == PackageManager.PERMISSION_GRANTED)
-                i++
-            if(i == 2) break
-        }
+    private fun hasWifiPermission() =
+            (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.CHANGE_WIFI_STATE) == PackageManager.PERMISSION_GRANTED)
 
-        return i == 2
-    }
 
 
 
@@ -436,9 +438,14 @@ class Fragment1 : Fragment() {
             for(i in grantResults.indices){
                 if(grantResults[i] == PackageManager.PERMISSION_GRANTED){
                     Toast.makeText(requireContext(), "Permission Granted.", Toast.LENGTH_LONG).show()
+
                 }
             }
         }
+
+
+
+
     }
 
     private fun turnOnFlash() {
@@ -462,14 +469,26 @@ class Fragment1 : Fragment() {
         }
     }
 
+    private fun goToNfcSettings() {
+        val intent = Intent(Settings.ACTION_NFC_SETTINGS)
+        startActivity(intent)
+    }
+
+    override fun onProximityDetected() {
+        binding.checkboxProxy.isChecked = true
+    }
+
+    override fun onProximityFar() {
+        binding.checkboxProxy.isChecked = false
+    }
+
+    override fun onWifiStateChanged(wifiState: Int) {
+        binding.checkboxWifi.isChecked = wifiState == WifiManager.WIFI_STATE_ENABLED
 
 
 
 
-
-
-
-
+    }
 
 
 }
