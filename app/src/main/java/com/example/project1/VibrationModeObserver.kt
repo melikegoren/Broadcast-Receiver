@@ -2,7 +2,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.database.ContentObserver
 import android.media.AudioManager
 
 class VibrationModeObservable(private val context: Context) {
@@ -12,10 +11,7 @@ class VibrationModeObservable(private val context: Context) {
     }
 
     private var callback: ((Boolean) -> Unit)? = null
-    private var volumeChangeObserver: ContentObserver? = null
-
-    private var receiver: BroadcastReceiver? = null
-
+    lateinit var receiver: BroadcastReceiver
 
     fun setOnVibrationModeChangeListener(listener: (Boolean) -> Unit) {
         callback = listener
@@ -38,9 +34,8 @@ class VibrationModeObservable(private val context: Context) {
 
     fun stopObserving() {
         callback = null
-        volumeChangeObserver?.let {
-            context.contentResolver.unregisterContentObserver(volumeChangeObserver!!)
-            volumeChangeObserver = null
+        receiver?.let {
+            context.unregisterReceiver(it)
         }
     }
 

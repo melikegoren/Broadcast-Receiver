@@ -8,7 +8,6 @@ import android.net.wifi.WifiManager
 import android.util.Log
 import android.widget.CheckBox
 
-@Suppress("DEPRECATION")
 class WifiObservable(private val context: Context) {
     private var wifiStateListener: WifiStateListener? = null
     private val wifiManager: WifiManager =
@@ -39,9 +38,7 @@ class WifiObservable(private val context: Context) {
         context.unregisterReceiver(wifiBroadcastReceiver)
     }
 
-    fun isWifi(): Boolean{
-        return wifiManager.isWifiEnabled
-    }
+
 
     interface WifiStateListener {
         fun onWifiStateChanged(wifiState: Int)
