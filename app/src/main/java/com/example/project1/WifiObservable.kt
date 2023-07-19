@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.wifi.WifiManager
 import android.util.Log
-import android.widget.CheckBox
 
 class WifiObservable(private val context: Context) {
     private var wifiStateListener: WifiStateListener? = null

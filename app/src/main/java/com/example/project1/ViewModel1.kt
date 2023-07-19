@@ -23,8 +23,6 @@ import androidx.lifecycle.ViewModel
 
 class ViewModel1 : ViewModel() {
 
-    //val bluetoothEnabled = MutableLiveData<Boolean>()
-    lateinit var wifiManager: WifiManager
 
 
     @SuppressLint("MissingPermission")
@@ -39,18 +37,13 @@ class ViewModel1 : ViewModel() {
         bluetoothAdapter?.disable()
     }
 
-    fun toggleWifi(context: Context) {
-        val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        wifiManager.isWifiEnabled = wifiManager.isWifiEnabled
-
-    }
-
 
     companion object {
 
         val headPhoneStatus = MutableLiveData<Boolean>()
         val chargingSocket = MutableLiveData<Boolean>()
         val liveDataSim = MutableLiveData<Boolean>()
+        val bluetoothLiveData = MutableLiveData<Boolean>()
         val nfc = MutableLiveData<Boolean>()
         val vibration = MutableLiveData<Boolean>()
 
@@ -101,6 +94,30 @@ class ViewModel1 : ViewModel() {
 
                 val vibrator = context?.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
                 vibration.value = vibrator.hasVibrator()
+            }
+        }
+
+         val bluetoothReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val action = intent.action
+
+                if (action != null) {
+                    if (action == BluetoothAdapter.ACTION_STATE_CHANGED) {
+                        val state =
+                            intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+                        when (state) {
+                            BluetoothAdapter.STATE_OFF -> {
+                                bluetoothLiveData.value = false
+                            }
+
+                            BluetoothAdapter.STATE_ON -> {
+                                // Bluetooth turned on
+                                bluetoothLiveData.value = true
+                            }
+
+                        }
+                    }
+                }
             }
         }
 
