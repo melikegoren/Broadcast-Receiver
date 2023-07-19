@@ -1,6 +1,5 @@
 package com.example.project1
 
-import NetworkStateObserver
 import NfcObservable
 import ProximityControl
 import VibrationModeObservable
@@ -22,7 +21,6 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
-import android.view.SurfaceHolder
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -277,17 +275,20 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
     private fun bluetooth() {
         binding.switchBluetooth.setOnCheckedChangeListener { _, isChecked ->
 
-            requestPermission(hasBluetoothPermission(), Manifest.permission.BLUETOOTH_CONNECT)
-            if (!hasBluetoothPermission()) {
+            requestPermission(requireContext().has(Manifest.permission.BLUETOOTH_CONNECT), Manifest.permission.BLUETOOTH_CONNECT)
+            if (!requireContext().has(Manifest.permission.BLUETOOTH_CONNECT)) {
                 binding.switchBluetooth.isChecked = false
             }
+            else{
+                if (requireContext().has(Manifest.permission.BLUETOOTH_CONNECT) && isChecked) {
+                    viewModel.enableBluetooth()
 
-            if (hasBluetoothPermission() && isChecked) {
-                viewModel.enableBluetooth()
-
-            } else if (hasBluetoothPermission() && !isChecked) {
-                viewModel.disableBluetooth()
+                } else if (requireContext().has(Manifest.permission.BLUETOOTH_CONNECT) && !isChecked) {
+                    viewModel.disableBluetooth()
+                }
             }
+
+
         }
     }
 
@@ -296,11 +297,11 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
     private fun flash() {
 
         binding.checkBoxFlash.setOnCheckedChangeListener { buttonView, isChecked ->
-            requestPermission(hasCameraPermission(), Manifest.permission.CAMERA)
-            if(hasCameraPermission()){
+            requestPermission(requireContext().has(Manifest.permission.CAMERA), Manifest.permission.CAMERA)
+            if(requireContext().has(Manifest.permission.CAMERA)){
                 if (isChecked) {
                     turnOnFlash()
-                } else turnOffFlash()
+                } else turnOfFlash()
             }
             else Toast.makeText(requireContext(), "Camera permission needed", Toast.LENGTH_SHORT).show()
 
@@ -399,7 +400,7 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
 
 
         binding.checkBoxTitresim.setOnCheckedChangeListener { _, isChecked ->
-            requestPermission(hasAudioPermission(), Manifest.permission.MODIFY_AUDIO_SETTINGS)
+            requestPermission(context?.has(Manifest.permission.MODIFY_AUDIO_SETTINGS) ?: false, Manifest.permission.MODIFY_AUDIO_SETTINGS)
             if (isChecked) {
                 // Change device mode to vibration
                 audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
@@ -432,7 +433,7 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
 
 
         binding.checkbox3G.setOnCheckedChangeListener { _, isChecked ->
-            requestPermission(hasNetworkPermission(), Manifest.permission.READ_PHONE_STATE)
+            requestPermission(requireContext().has(Manifest.permission.ACCESS_NETWORK_STATE), Manifest.permission.READ_PHONE_STATE)
             setMobileDataEnabled(isChecked)
         }
     }
@@ -448,7 +449,7 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
         }
     }
 
-    private fun turnOffFlash() {
+    private fun turnOfFlash() {
         try {
             val cameraId = cameraManager.cameraIdList[0] // Assuming the first camera has a flash
             cameraManager.setTorchMode(cameraId, false)
@@ -472,31 +473,8 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.S)
-    private fun hasBluetoothPermission(): Boolean =
-        ActivityCompat.checkSelfPermission(
-            requireContext(),
-            Manifest.permission.BLUETOOTH_CONNECT
-        ) ==
-                PackageManager.PERMISSION_GRANTED
-
-    private fun hasWifiPermission() =
-        (ActivityCompat.checkSelfPermission(
-            requireContext(),
-            Manifest.permission.CHANGE_WIFI_STATE
-        ) == PackageManager.PERMISSION_GRANTED)
 
 
-
-
-    private fun hasAudioPermission() =
-        ActivityCompat.checkSelfPermission(requireContext(),
-        Manifest.permission.MODIFY_AUDIO_SETTINGS,
-        ) == PackageManager.PERMISSION_GRANTED
-
-    private fun hasCameraPermission() =
-        ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
 
     @RequiresApi(Build.VERSION_CODES.S)
     private fun requestPermission(hasPermission: Boolean, vararg permission: String) {
@@ -507,15 +485,14 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
             }
         }
 
-        if (hasPermission == hasBluetoothPermission()) {
+        if (hasPermission == context?.has(Manifest.permission.BLUETOOTH_CONNECT)) {
             PERMISSION_REQUEST_CODE = 2
-        } else if (hasPermission == hasWifiPermission()) {
+        } else if (hasPermission == context?.has(Manifest.permission.CHANGE_WIFI_STATE)) {
             PERMISSION_REQUEST_CODE = 1
-        } else if (hasPermission == hasNetworkPermission())
-            PERMISSION_REQUEST_CODE = 3
+        }
 
-        else if(hasPermission == hasAudioPermission()) PERMISSION_REQUEST_CODE = 4
-        else if(hasPermission == hasCameraPermission()) PERMISSION_REQUEST_CODE =5
+        else if(hasPermission == context?.has(Manifest.permission.MODIFY_AUDIO_SETTINGS)) PERMISSION_REQUEST_CODE = 4
+        else if(hasPermission == context?.has(Manifest.permission.CAMERA)) PERMISSION_REQUEST_CODE =5
 
         if (permissionsToRequest.isNotEmpty()) {
             ActivityCompat.requestPermissions(
@@ -549,3 +526,4 @@ class Fragment1 : Fragment(), ProximityControl.ProximityListener, WifiObservable
 
 
 }
+
